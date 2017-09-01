@@ -54,19 +54,19 @@ install:
 $(BUILD_DIR):
 	mkdir -p $@
 
-$(BUILD_DIR)/stamp-dehydrated-2-$(DEHYDRATED_VERSION): | $(BUILD_DIR)
+$(BUILD_DIR)/stamp-dehydrated-2-$(DEHYDRATED_VERSION): $(BUILD_DIR)
 	rm -f $(BUILD_DIR)/stamp-dehydrated-*
 	mkdir -p $(BUILD_DIR)/bin
 	curl -sSLo $(BUILD_DIR)/bin/dehydrated "https://raw.githubusercontent.com/lukas2511/dehydrated/$(DEHYDRATED_VERSION)/dehydrated"
 	chmod +x $(BUILD_DIR)/bin/dehydrated
 	touch $@
 
-$(BUILD_DIR)/stamp-lua-resty-shell-$(LUA_RESTY_SHELL_VERSION): | $(BUILD_DIR)
+$(BUILD_DIR)/stamp-lua-resty-shell-$(LUA_RESTY_SHELL_VERSION): $(BUILD_DIR)
 	rm -f $(BUILD_DIR)/stamp-lua-resty-shell-*
 	curl -sSLo $(ROOT_DIR)/lib/resty/auto-ssl/vendor/shell.lua "https://raw.githubusercontent.com/juce/lua-resty-shell/$(LUA_RESTY_SHELL_VERSION)/lib/resty/shell.lua"
 	touch $@
 
-$(BUILD_DIR)/stamp-sockproc-2-$(SOCKPROC_VERSION): | $(BUILD_DIR)
+$(BUILD_DIR)/stamp-sockproc-2-$(SOCKPROC_VERSION): $(BUILD_DIR)
 	rm -f $(BUILD_DIR)/stamp-sockproc-*
 	mkdir -p $(BUILD_DIR)/bin
 	cd $(BUILD_DIR) && curl -sSLo sockproc-$(SOCKPROC_VERSION).tar.gz "https://github.com/juce/sockproc/archive/$(SOCKPROC_VERSION).tar.gz"
