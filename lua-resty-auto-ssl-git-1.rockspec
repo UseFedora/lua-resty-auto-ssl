@@ -11,6 +11,7 @@ description = {
 }
 dependencies = {
   "lua-resty-http",
+  "resty-raven"
 }
 build = {
   type = "make",
