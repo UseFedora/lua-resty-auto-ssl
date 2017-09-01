@@ -1,6 +1,11 @@
 local _M = {}
 
 local shell_execute = require "resty.auto-ssl.utils.shell_execute"
+local raven = require "raven"
+
+local rvn = raven:new(os.getenv("SENTRY_DSN", {
+  tags = {},
+}))
 
 function _M.issue_cert(auto_ssl_instance, domain)
   assert(type(domain) == "string", "domain must be a string")
@@ -37,6 +42,15 @@ function _M.issue_cert(auto_ssl_instance, domain)
     "--hook " .. lua_root .. "/bin/resty-auto-ssl/letsencrypt_hooks"
   local status, out, err = shell_execute(command)
   if status ~= 0 then
+    local message = string.format("auto-ssl: dehydrated failed: status: %s out: %s err: %s", status, out, err)
+    local id, rvnErr = rvn:captureMessage(
+      message,
+      { tags = { domain = domain } } -- optional
+    )
+    if not id then
+      ngx.log(ngx.ERR, rvnErr)
+    end
+
     ngx.log(ngx.ERR, "auto-ssl: dehydrated failed: ", command, " status: ", status, " out: ", out, " err: ", err)
     return nil, nil, "dehydrated failure"
   end
