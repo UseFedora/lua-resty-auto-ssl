@@ -23,5 +23,10 @@ end
 return function ()
   local co = coroutine.create(get_info)
   local bool, res = coroutine.resume(co)
-  return res
+  if bool then
+    return res
+  else
+    ngx.log(ngx.ERR, bool)
+    return bool
+  end
 end
