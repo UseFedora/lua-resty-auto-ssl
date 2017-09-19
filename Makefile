@@ -32,6 +32,7 @@ install:
 	install -d $(INST_LUADIR)/resty/auto-ssl/servers
 	install -m 644 lib/resty/auto-ssl/servers/challenge.lua $(INST_LUADIR)/resty/auto-ssl/servers/challenge.lua
 	install -m 644 lib/resty/auto-ssl/servers/hook.lua $(INST_LUADIR)/resty/auto-ssl/servers/hook.lua
+	install -m 644 lib/resty/auto-ssl/request_info.lua $(INST_LUADIR)/resty/auto-ssl/request_info.lua
 	install -m 644 lib/resty/auto-ssl/ssl_certificate.lua $(INST_LUADIR)/resty/auto-ssl/ssl_certificate.lua
 	install -d $(INST_LUADIR)/resty/auto-ssl/ssl_providers
 	install -m 644 lib/resty/auto-ssl/ssl_providers/lets_encrypt.lua $(INST_LUADIR)/resty/auto-ssl/ssl_providers/lets_encrypt.lua
