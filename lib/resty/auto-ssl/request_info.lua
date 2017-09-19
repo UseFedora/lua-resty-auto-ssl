@@ -1,4 +1,4 @@
-local function get_info () 
+local function get_info ()
   local remote_addr     = ngx.var.remote_addr
   local remote_user     = ngx.var.remote_user
   local time_local      = ngx.var.time_local
@@ -21,7 +21,7 @@ local function get_info ()
 end
 
 return function ()
-  co = coroutine.create(get_info)
-  bool, res = coroutine.resume(co)
+  local co = coroutine.create(get_info)
+  local bool, res = coroutine.resume(co)
   return res
 end
