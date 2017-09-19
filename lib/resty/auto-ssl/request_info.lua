@@ -26,7 +26,7 @@ return function ()
   if bool then
     return res
   else
-    ngx.log(ngx.ERR, bool)
+    ngx.log(ngx.ERR, res)
     return bool
   end
 end
