@@ -2,6 +2,7 @@ local http = require "resty.http"
 local lock = require "resty.lock"
 local ocsp = require "ngx.ocsp"
 local ssl = require "ngx.ssl"
+local request_info = require "resty.auto-ssl.request_info"
 local ssl_provider = require "resty.auto-ssl.ssl_providers.lets_encrypt"
 
 local function convert_to_der_and_cache(domain, fullchain_pem, privkey_pem, newly_issued)
@@ -245,7 +246,7 @@ local function do_ssl(auto_ssl_instance, ssl_options)
 
   -- Check to ensure the domain is one we allow for handling SSL.
   local allow_domain = auto_ssl_instance:get("allow_domain")
-  if not allow_domain(domain) then
+  if not allow_domain(domain, request_info()) then
     ngx.log(ngx.NOTICE, "auto-ssl: domain not allowed - using fallback - ", domain)
     return
   end
