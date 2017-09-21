@@ -2,7 +2,6 @@ local http = require "resty.http"
 local lock = require "resty.lock"
 local ocsp = require "ngx.ocsp"
 local ssl = require "ngx.ssl"
-local request_info = require "resty.auto-ssl.request_info"
 local ssl_provider = require "resty.auto-ssl.ssl_providers.lets_encrypt"
 local raven = require "raven"
 local rvn = raven:new(os.getenv("SENTRY_DSN", {
@@ -38,7 +37,7 @@ local function convert_to_der_and_cache(domain, fullchain_pem, privkey_pem, newl
     local message =  "auto-ssl: failed to set shdict cache of certificate chain for " .. domain .. ": " .. set_fullchain_err
     logAndReport(ngx.ERR, message, domain)
   elseif set_fullchain_forcible then
-    message = "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding certificate chain for " .. domain .. ")"
+    local message = "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding certificate chain for " .. domain .. ")"
     logAndReport(ngx.ERR, message, domain)
   end
 
