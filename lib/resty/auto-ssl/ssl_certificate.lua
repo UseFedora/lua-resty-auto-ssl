@@ -4,6 +4,10 @@ local ocsp = require "ngx.ocsp"
 local ssl = require "ngx.ssl"
 local request_info = require "resty.auto-ssl.request_info"
 local ssl_provider = require "resty.auto-ssl.ssl_providers.lets_encrypt"
+local raven = require "raven"
+local rvn = raven:new(os.getenv("SENTRY_DSN", {
+  tags = {},
+}))
 
 local function convert_to_der_and_cache(domain, fullchain_pem, privkey_pem, newly_issued)
   -- Convert certificate from PEM to DER format.
@@ -22,9 +26,19 @@ local function convert_to_der_and_cache(domain, fullchain_pem, privkey_pem, newl
   -- across multiple servers).
   local _, set_fullchain_err, set_fullchain_forcible = ngx.shared.auto_ssl:set("domain:fullchain_der:" .. domain, fullchain_der, 3600)
   if set_fullchain_err then
-    ngx.log(ngx.ERR, "auto-ssl: failed to set shdict cache of certificate chain for " .. domain .. ": ", set_fullchain_err)
+    local message =  "auto-ssl: failed to set shdict cache of certificate chain for " .. domain .. ": " .. set_fullchain_err
+    rvn:captureMessage(
+      message,
+      { tags = { domain = domain } } -- optional
+    )
+    ngx.log(ngx.ERR, message)
   elseif set_fullchain_forcible then
-    ngx.log(ngx.ERR, "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding certificate chain for " .. domain .. ")")
+    message = "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding certificate chain for " .. domain .. ")"
+    rvn:captureMessage(
+      message,
+      { tags = { domain = domain } } -- optional
+    )
+    ngx.log(ngx.ERR, message)
   end
 
   local _, set_privkey_err, set_privkey_forcible = ngx.shared.auto_ssl:set("domain:privkey_der:" .. domain, privkey_der, 3600)
