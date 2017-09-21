@@ -9,6 +9,15 @@ local rvn = raven:new(os.getenv("SENTRY_DSN", {
   tags = {},
 }))
 
+local function logAndReport(logLevel, message, domain)
+  rvn:captureMessage(
+    message,
+    { tags = { domain = domain } } -- optional
+  )
+  ngx.log(logLevel, message)
+end
+
+
 local function convert_to_der_and_cache(domain, fullchain_pem, privkey_pem, newly_issued)
   -- Convert certificate from PEM to DER format.
   local fullchain_der, fullchain_der_err = ssl.cert_pem_to_der(fullchain_pem)
@@ -27,25 +36,17 @@ local function convert_to_der_and_cache(domain, fullchain_pem, privkey_pem, newl
   local _, set_fullchain_err, set_fullchain_forcible = ngx.shared.auto_ssl:set("domain:fullchain_der:" .. domain, fullchain_der, 3600)
   if set_fullchain_err then
     local message =  "auto-ssl: failed to set shdict cache of certificate chain for " .. domain .. ": " .. set_fullchain_err
-    rvn:captureMessage(
-      message,
-      { tags = { domain = domain } } -- optional
-    )
-    ngx.log(ngx.ERR, message)
+    logAndReport(ngx.ERR, message, domain)
   elseif set_fullchain_forcible then
     message = "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding certificate chain for " .. domain .. ")"
-    rvn:captureMessage(
-      message,
-      { tags = { domain = domain } } -- optional
-    )
-    ngx.log(ngx.ERR, message)
+    logAndReport(ngx.ERR, message, domain)
   end
 
   local _, set_privkey_err, set_privkey_forcible = ngx.shared.auto_ssl:set("domain:privkey_der:" .. domain, privkey_der, 3600)
   if set_privkey_err then
-    ngx.log(ngx.ERR, "auto-ssl: failed to set shdict cache of private key for " .. domain .. ": ", set_privkey_err)
+    logAndReport(ngx.ERR, "auto-ssl: failed to set shdict cache of private key for " .. domain .. ": " .. set_privkey_err, domain)
   elseif set_privkey_forcible then
-    ngx.log(ngx.ERR, "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding private key for " .. domain .. ")")
+    logAndReport(ngx.ERR, "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding private key for " .. domain .. ")", domain)
   end
 
   return fullchain_der, privkey_der, newly_issued
@@ -55,14 +56,14 @@ local function issue_cert_unlock(domain, storage, local_lock, distributed_lock_v
   if local_lock then
     local _, local_unlock_err = local_lock:unlock()
     if local_unlock_err then
-      ngx.log(ngx.ERR, "auto-ssl: failed to unlock: ", local_unlock_err)
+      logAndReport(ngx.ERR, "auto-ssl: failed to unlock: " .. local_unlock_err, domain)
     end
   end
 
   if distributed_lock_value then
     local _, distributed_unlock_err = storage:issue_cert_unlock(domain, distributed_lock_value)
     if distributed_unlock_err then
-      ngx.log(ngx.ERR, "auto-ssl: failed to unlock: ", distributed_unlock_err)
+      logAndReport(ngx.ERR, "auto-ssl: failed to unlock: " .. distributed_unlock_err, domain)
     end
   end
 end
@@ -74,12 +75,12 @@ local function issue_cert(auto_ssl_instance, storage, domain)
   -- don't simultaneously try to register the same cert.
   local local_lock, new_local_lock_err = lock:new("auto_ssl", { exptime = 30, timeout = 30 })
   if new_local_lock_err then
-    ngx.log(ngx.ERR, "auto-ssl: failed to create lock: ", new_local_lock_err)
+    logAndReport(ngx.ERR, "auto-ssl: failed to create lock: " .. new_local_lock_err, domain)
     return
   end
   local _, local_lock_err = local_lock:lock("issue_cert:" .. domain)
   if local_lock_err then
-    ngx.log(ngx.ERR, "auto-ssl: failed to obtain lock: ", local_lock_err)
+    logAndReport(ngx.ERR, "auto-ssl: failed to obtain lock: " .. local_lock_err, domain)
     return
   end
 
@@ -88,7 +89,7 @@ local function issue_cert(auto_ssl_instance, storage, domain)
   -- adapter).
   local distributed_lock_value, distributed_lock_err = storage:issue_cert_lock(domain)
   if distributed_lock_err then
-    ngx.log(ngx.ERR, "auto-ssl: failed to obtain lock: ", distributed_lock_err)
+    logAndReport(ngx.ERR, "auto-ssl: failed to obtain lock: " .. distributed_lock_err, domain)
     issue_cert_unlock(domain, storage, local_lock, nil)
     return
   end
@@ -104,7 +105,7 @@ local function issue_cert(auto_ssl_instance, storage, domain)
   ngx.log(ngx.NOTICE, "auto-ssl: issuing new certificate for ", domain)
   fullchain_pem, privkey_pem, err = ssl_provider.issue_cert(auto_ssl_instance, domain)
   if err then
-    ngx.log(ngx.ERR, "auto-ssl: issuing new certificate failed: ", err)
+    logAndReport(ngx.ERR, "auto-ssl: issuing new certificate failed: " .. err, domain)
   end
 
   issue_cert_unlock(domain, storage, local_lock, distributed_lock_value)
@@ -205,9 +206,9 @@ local function set_ocsp_stapling(domain, fullchain_der, newly_issued)
     -- default).
     local _, set_ocsp_err, set_ocsp_forcible = ngx.shared.auto_ssl:set("domain:ocsp:" .. domain, ocsp_resp, 3600)
     if set_ocsp_err then
-      ngx.log(ngx.ERR, "auto-ssl: failed to set shdict cache of OCSP response for " .. domain .. ": ", set_ocsp_err)
+      logAndReport(ngx.ERR, "auto-ssl: failed to set shdict cache of OCSP response for " .. domain .. ": " .. set_ocsp_err)
     elseif set_ocsp_forcible then
-      ngx.log(ngx.ERR, "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding OCSP response for " .. domain .. ")")
+      logAndReport(ngx.ERR, "auto-ssl: 'lua_shared_dict auto_ssl' might be too small - consider increasing its configured size (old entries were removed while adding OCSP response for " .. domain .. ")", domain)
     end
   end
 
@@ -233,7 +234,7 @@ local function set_cert(auto_ssl_instance, domain, fullchain_der, privkey_der, n
   -- Set OCSP stapling.
   ok, err = set_ocsp_stapling(domain, fullchain_der, newly_issued)
   if not ok then
-    ngx.log(auto_ssl_instance:get("ocsp_stapling_error_level"), "auto-ssl: failed to set ocsp stapling for ", domain, " - continuing anyway - ", err)
+    logAndReport(auto_ssl_instance:get("ocsp_stapling_error_level"), "auto-ssl: failed to set ocsp stapling for " .. domain .. " - continuing anyway - " .. err, domain)
   end
 
   -- Set the public certificate chain.
@@ -254,7 +255,7 @@ local function do_ssl(auto_ssl_instance, ssl_options)
   local request_domain = auto_ssl_instance:get("request_domain")
   local domain, domain_err = request_domain(ssl, ssl_options)
   if not domain or domain_err then
-    ngx.log(ngx.WARN, "auto-ssl: could not determine domain for request (SNI not supported?) - using fallback - " .. (domain_err or ""))
+    logAndReport(ngx.WARN, "auto-ssl: could not determine domain for request (SNI not supported?) - using fallback - " .. (domain_err or ""))
     return
   end
 
@@ -268,17 +269,17 @@ local function do_ssl(auto_ssl_instance, ssl_options)
   -- Get or issue the certificate for this domain.
   local fullchain_der, privkey_der, newly_issued, get_cert_err = get_cert(auto_ssl_instance, domain)
   if get_cert_err then
-    ngx.log(ngx.ERR, "auto-ssl: could not get certificate for ", domain, " - using fallback - ", get_cert_err)
+    logAndReport(ngx.ERR, "auto-ssl: could not get certificate for " .. domain .. " - using fallback - " .. get_cert_err, domain)
     return
   elseif not fullchain_der or not privkey_der then
-    ngx.log(ngx.ERR, "auto-ssl: certificate data unexpectedly missing for ", domain, " - using fallback")
+    logAndReport(ngx.ERR, "auto-ssl: certificate data unexpectedly missing for " .. domain .. " - using fallback", domain)
     return
   end
 
   -- Set the certificate on the response.
   local _, set_cert_err = set_cert(auto_ssl_instance, domain, fullchain_der, privkey_der, newly_issued)
   if set_cert_err then
-    ngx.log(ngx.ERR, "auto-ssl: failed to set certificate for ", domain, " - using fallback - ", set_cert_err)
+    logAndReport(ngx.ERR, "auto-ssl: failed to set certificate for " .. domain .. " - using fallback - " .. set_cert_err, domain)
     return
   end
 end
