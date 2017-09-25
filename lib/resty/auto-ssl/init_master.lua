@@ -75,6 +75,11 @@ local function generate_config(auto_ssl_instance)
       file:write('CA="' .. ca .. '"\n')
     end
 
+    local license = auto_ssl_instance:get("license")
+    if license then
+      file:write('LICENSE="' .. license .. '"\n')
+    end
+
     file:close()
   end
 end
