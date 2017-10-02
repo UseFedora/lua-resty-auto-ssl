@@ -13,7 +13,7 @@ local function logAndReport(logLevel, message, domain)
     rvn:captureMessage(
       message,
       { tags = { domain = domain } } -- optional
-  )
+    )
   end
   ngx.log(logLevel, message)
 end
