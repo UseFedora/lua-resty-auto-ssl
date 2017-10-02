@@ -33,7 +33,7 @@ function _M.new(options)
   end
 
   if not options["ocsp_stapling_error_level"] then
-    options["ocsp_stapling_error_level"] = ngx.ERR
+    options["ocsp_stapling_error_level"] = ngx.INFO
   end
 
   if not options["renew_check_interval"] then

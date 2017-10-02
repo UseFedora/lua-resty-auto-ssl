@@ -9,10 +9,12 @@ local rvn = raven:new(os.getenv("SENTRY_DSN", {
 }))
 
 local function logAndReport(logLevel, message, domain)
-  rvn:captureMessage(
-    message,
-    { tags = { domain = domain } } -- optional
+  if logLevel == ngx.ERR then
+    rvn:captureMessage(
+      message,
+      { tags = { domain = domain } } -- optional
   )
+  end
   ngx.log(logLevel, message)
 end
 
