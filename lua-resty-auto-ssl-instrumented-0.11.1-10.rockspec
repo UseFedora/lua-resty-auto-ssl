@@ -1,5 +1,5 @@
 package = "lua-resty-auto-ssl-instrumented"
-version = "0.11.1-9"
+version = "0.11.1-10"
 source = {
   url = "git://github.com/UseFedora/lua-resty-auto-ssl.git",
 }
